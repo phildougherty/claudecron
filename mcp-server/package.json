@@ -1,0 +1,56 @@
+{
+  "name": "claudecron-mcp-server",
+  "version": "2.0.0",
+  "description": "ClaudeCron MCP Server - Task scheduling for Claude Code",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "claudecron": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/server.js",
+    "test": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "vitest run tests/e2e",
+    "test:e2e:watch": "vitest tests/e2e",
+    "test:coverage": "vitest --coverage",
+    "test:all": "vitest run",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.22",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "better-sqlite3": "^11.7.0",
+    "chokidar": "^4.0.3",
+    "cron-parser": "^5.4.0",
+    "date-holidays": "^3.26.2",
+    "minimatch": "^10.0.3",
+    "node-cron": "^3.0.3",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.18.11",
+    "@types/node-cron": "^3.0.11",
+    "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "cron",
+    "scheduler",
+    "automation",
+    "ai"
+  ],
+  "author": "ClaudeCron Contributors",
+  "license": "MIT"
+}

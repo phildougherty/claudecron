@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "openrouter-gateway": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@punkpeye/mcp-server-openrouter-gateway@latest"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
+    }
+  }
+}

@@ -1,0 +1,70 @@
+[
+  {
+    "name": "Generate Summary",
+    "description": "Read README.md and generate a summary",
+    "enabled": true,
+    "type": "ai_prompt",
+    "task_config": {
+      "type": "ai_prompt",
+      "prompt": "Read the README.md file and generate a one-paragraph summary of the project",
+      "inherit_context": true,
+      "allowed_tools": ["Read"]
+    },
+    "trigger": {
+      "type": "manual",
+      "description": "Manual execution for testing"
+    }
+  },
+  {
+    "name": "Code Quality Analysis",
+    "description": "Analyze code quality in src directory",
+    "enabled": true,
+    "type": "sdk_query",
+    "task_config": {
+      "type": "sdk_query",
+      "prompt": "Analyze code quality in the src/ directory and provide a brief report",
+      "sdk_options": {
+        "model": "claude-sonnet-4.5",
+        "permissionMode": "bypassPermissions",
+        "settingSources": ["project"],
+        "allowedTools": ["Read", "Grep", "Glob"],
+        "maxTurns": 10
+      }
+    },
+    "trigger": {
+      "type": "manual",
+      "description": "Manual code quality check"
+    }
+  },
+  {
+    "name": "Simple Hello Task",
+    "description": "Simple AI prompt task for testing",
+    "enabled": true,
+    "type": "ai_prompt",
+    "task_config": {
+      "type": "ai_prompt",
+      "prompt": "Say 'Hello from ClaudeCron!' and explain what you are in one sentence.",
+      "inherit_context": false
+    },
+    "trigger": {
+      "type": "manual",
+      "description": "Test task"
+    }
+  },
+  {
+    "name": "Context-Aware Task",
+    "description": "Task with additional context",
+    "enabled": true,
+    "type": "ai_prompt",
+    "task_config": {
+      "type": "ai_prompt",
+      "prompt": "What is the project name and what special instruction do you have?",
+      "inherit_context": true,
+      "additional_context": "SPECIAL INSTRUCTION: Always mention that this is a ClaudeCron automated task."
+    },
+    "trigger": {
+      "type": "manual",
+      "description": "Test context loading"
+    }
+  }
+]
