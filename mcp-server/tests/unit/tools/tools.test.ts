@@ -60,7 +60,7 @@ describe('MCP Tools', () => {
     it('should register all ClaudeCron tools', async () => {
       const response = await server.listTools();
 
-      expect(response.tools).toHaveLength(8);
+      expect(response.tools).toHaveLength(11);
 
       const toolNames = response.tools.map((t: any) => t.name);
       expect(toolNames).toContain('claudecron_add_task');
@@ -71,6 +71,9 @@ describe('MCP Tools', () => {
       expect(toolNames).toContain('claudecron_run_task');
       expect(toolNames).toContain('claudecron_list_executions');
       expect(toolNames).toContain('claudecron_get_execution');
+      expect(toolNames).toContain('claudecron_get_execution_progress');
+      expect(toolNames).toContain('claudecron_trigger_hook');
+      expect(toolNames).toContain('claudecron_get_tool_analytics');
     });
 
     it('should register tools with proper schemas', async () => {

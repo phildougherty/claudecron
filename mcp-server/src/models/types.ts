@@ -12,11 +12,7 @@
  */
 export type TaskType =
   | 'bash'           // Execute shell commands
-  | 'ai_prompt'      // Execute AI prompts with SDK
-  | 'slash_command'  // Execute slash commands
-  | 'subagent'       // Launch subagents
-  | 'tool_call'      // Call specific MCP tools
-  | 'sdk_query';     // Execute custom SDK query
+  | 'subagent';      // Execute prompts via Claude SDK
 
 /**
  * Trigger Type Definitions
@@ -151,11 +147,7 @@ export interface Task {
  */
 export type TaskConfig =
   | BashTaskConfig
-  | AIPromptTaskConfig
-  | SlashCommandTaskConfig
-  | SubagentTaskConfig
-  | ToolCallTaskConfig
-  | SDKQueryTaskConfig;
+  | SubagentTaskConfig;
 
 export interface BashTaskConfig {
   type: 'bash';
@@ -165,47 +157,36 @@ export interface BashTaskConfig {
   timeout?: number;                    // Timeout in milliseconds
 }
 
-export interface AIPromptTaskConfig {
-  type: 'ai_prompt';
-  prompt: string;                      // AI prompt
+export interface SubagentTaskConfig {
+  type: 'subagent';
+
+  // Prompt source - provide either prompt OR command
+  prompt?: string;                     // Inline prompt
+  command?: string;                    // Load prompt from .claude/commands/{command}.md
+  args?: string;                       // Arguments to append (when using command)
+
+  // Model configuration
   model?: string;                      // Override default model
   max_tokens?: number;                 // Token limit
   temperature?: number;                // Temperature setting
+
+  // Context and tools
   inherit_context?: boolean;           // Load CLAUDE.md (default: true)
   allowed_tools?: string[];            // Allowed tool names
   additional_context?: string;         // Extra context to append
+
+  // Advanced features
   capture_thinking?: boolean;          // Capture ThinkingBlock output (default: false)
   stream_output?: boolean;             // Enable streaming updates (default: false)
-  max_thinking_tokens?: number;        // Token limit for thinking (Claude Sonnet 4.5)
-}
+  max_thinking_tokens?: number;        // Token limit for thinking (Claude Sonnet 4.5+)
 
-export interface SlashCommandTaskConfig {
-  type: 'slash_command';
-  command: string;                     // Slash command name (with or without /)
-  args?: string;                       // Arguments to pass
-}
+  // SDK options override
+  sdk_options?: SDKOptions;            // Override any SDK option
 
-export interface SubagentTaskConfig {
-  type: 'subagent';
-  agent: string;                       // Agent name (from .claude/agents/)
-  prompt: string;                      // Task for subagent
-  inherit_tools?: boolean;             // Inherit parent's tools (default: false)
-  separate_context: boolean;           // Always true - subagents get fresh context
-  pass_results_to_parent?: boolean;    // Return results to main context (default: false)
-  timeout?: number;                    // Subagent execution timeout (ms)
-}
-
-export interface ToolCallTaskConfig {
-  type: 'tool_call';
-  tool_name: string;                   // MCP tool name (e.g., "mcp_server.tool")
-  tool_input: Record<string, any>;     // Tool input parameters
-  server?: string;                     // MCP server name (if ambiguous)
-}
-
-export interface SDKQueryTaskConfig {
-  type: 'sdk_query';
-  prompt: string;                      // Query prompt
-  sdk_options: SDKOptions;             // Full SDK options object
+  // Execution
+  cwd?: string;                        // Working directory
+  env?: Record<string, string>;        // Environment variables
+  timeout?: number;                    // Execution timeout (ms)
 }
 
 /**
@@ -520,7 +501,29 @@ export interface ClaudeCronConfig {
   storage: StorageConfig;
   scheduler?: SchedulerConfig;
   transport?: 'stdio' | 'http';
-  port?: number;
+  http?: HttpTransportConfig;
+}
+
+/**
+ * HTTP Transport Configuration
+ */
+export interface HttpTransportConfig {
+  port?: number;                    // Server port (default: 3000)
+  host?: string;                    // Host to bind to (default: 'localhost')
+  auth?: HttpAuthConfig;            // Authentication configuration
+  cors?: {
+    enabled?: boolean;              // Enable CORS (default: true)
+    origins?: string[];             // Allowed origins (default: ['*'])
+  };
+}
+
+/**
+ * HTTP Authentication Configuration
+ */
+export interface HttpAuthConfig {
+  type: 'bearer' | 'apikey' | 'none';
+  token?: string;                   // Bearer token or API key
+  header?: string;                  // Custom header name for API key
 }
 
 export interface StorageConfig {

@@ -9,6 +9,7 @@
 
 import { Storage } from './storage.js';
 import { SQLiteStorage } from './sqlite.js';
+import { PostgresStorage } from './postgres.js';
 import { StorageConfig } from '../models/types.js';
 import * as path from 'path';
 import * as os from 'os';
@@ -41,8 +42,10 @@ export class StorageFactory {
     }
 
     if (config.type === 'postgres') {
-      // PostgreSQL support will be added in Day 4 (Enhancement Agent)
-      throw new Error('PostgreSQL storage not yet implemented. Use SQLite for now.');
+      if (!config.url) {
+        throw new Error('PostgreSQL connection URL is required (config.url)');
+      }
+      return new PostgresStorage(config.url);
     }
 
     throw new Error(`Unknown storage type: ${config.type}`);

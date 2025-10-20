@@ -7,8 +7,9 @@
  */
 
 import { spawn } from 'child_process';
-import { Task, BashTaskConfig } from '../models/types.js';
+import { Task, BashTaskConfig, Execution } from '../models/types.js';
 import { Executor, ExecutionResult } from './factory.js';
+import { replaceTemplateVariables } from '../handlers/template-variables.js';
 
 /**
  * Bash Executor
@@ -19,10 +20,10 @@ export class BashExecutor implements Executor {
   /**
    * Execute a bash task
    * @param task - Task to execute
-   * @param _triggerContext - Context from trigger (not used for bash)
+   * @param execution - Execution record with trigger context
    * @returns Execution result
    */
-  async execute(task: Task, _triggerContext?: any): Promise<ExecutionResult> {
+  async execute(task: Task, execution: Execution): Promise<ExecutionResult> {
     const config = task.task_config as BashTaskConfig;
     const startTime = Date.now();
 
@@ -31,9 +32,20 @@ export class BashExecutor implements Executor {
     }
 
     // Get configuration
-    const command = config.command;
+    let command = config.command;
+
+    // Apply template variable replacement
+    command = replaceTemplateVariables(command, task, execution);
+
     const cwd = config.cwd || process.cwd();
-    const env = { ...process.env, ...config.env };
+
+    // Build environment variables with hook context
+    const env = {
+      ...process.env,
+      ...config.env,
+      ...this.buildContextEnv(task, execution)
+    };
+
     const timeout = config.timeout || task.options?.timeout || 120000; // Default 2 minutes
 
     console.error(`[BashExecutor] Executing: ${command}`);
@@ -167,6 +179,63 @@ export class BashExecutor implements Executor {
         reject(execError);
       });
     });
+  }
+
+  /**
+   * Build environment variables from task and execution context
+   * @param task - Task being executed
+   * @param execution - Execution record with trigger context
+   * @returns Environment variable object
+   */
+  private buildContextEnv(task: Task, execution: Execution): Record<string, string> {
+    const env: Record<string, string> = {};
+
+    // Add task metadata
+    env.TASK_ID = task.id;
+    env.TASK_NAME = task.name;
+    env.TASK_TYPE = task.type;
+
+    // Add execution metadata
+    env.EXECUTION_ID = execution.id;
+    env.TRIGGER_TYPE = execution.trigger_type;
+
+    // Add trigger context variables if available
+    if (execution.trigger_context) {
+      const context = execution.trigger_context;
+
+      // File path (from hooks or file watch)
+      if (context.file_path) {
+        env.FILE_PATH = context.file_path;
+      }
+      if (context.file) {
+        env.FILE_PATH = context.file;
+      }
+
+      // Event type (from file watch)
+      if (context.event) {
+        env.EVENT = context.event;
+      }
+
+      // Timestamp
+      if (context.timestamp) {
+        env.TIMESTAMP = context.timestamp;
+      }
+
+      // Tool name (from PostToolUse hook)
+      if (context.tool_name) {
+        env.TOOL_NAME = context.tool_name;
+      }
+
+      // Add any other string/number fields from context
+      for (const [key, value] of Object.entries(context)) {
+        const envKey = key.toUpperCase();
+        if (!env[envKey] && (typeof value === 'string' || typeof value === 'number')) {
+          env[envKey] = String(value);
+        }
+      }
+    }
+
+    return env;
   }
 }
 

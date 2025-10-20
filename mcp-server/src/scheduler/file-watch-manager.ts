@@ -174,7 +174,7 @@ export class FileWatchManager {
 
       await this.scheduler.executeTask(task.id, 'file_watch', {
         event,
-        file: filePath,
+        file_path: filePath,
         timestamp: new Date().toISOString(),
       });
     } catch (error: any) {

@@ -1,0 +1,183 @@
+[
+  {
+    "name": "Auto-format TypeScript on Save",
+    "description": "Automatically format TypeScript files when saved",
+    "type": "bash",
+    "task_config": {
+      "type": "bash",
+      "command": "prettier --write \"$FILE_PATH\""
+    },
+    "trigger": {
+      "type": "hook",
+      "event": "PostToolUse",
+      "conditions": {
+        "tool_names": ["Write", "Edit"],
+        "file_pattern": ".*\\.tsx?$"
+      },
+      "debounce": "2s"
+    }
+  },
+  {
+    "name": "Run Tests on TypeScript Changes",
+    "description": "Run test suite when TypeScript files are modified",
+    "type": "bash",
+    "task_config": {
+      "type": "bash",
+      "command": "npm test -- --related \"$FILE_PATH\"",
+      "timeout": 60000
+    },
+    "trigger": {
+      "type": "hook",
+      "event": "PostToolUse",
+      "conditions": {
+        "file_pattern": ".*\\.test\\.tsx?$"
+      },
+      "debounce": "5s"
+    }
+  },
+  {
+    "name": "Session Startup Report",
+    "description": "Generate summary when session starts",
+    "type": "subagent",
+    "task_config": {
+      "type": "subagent",
+      "prompt": "Review recent git commits and provide a brief summary of work since last session. Be concise.",
+      "inherit_context": true,
+      "allowed_tools": ["Bash", "Read"]
+    },
+    "trigger": {
+      "type": "hook",
+      "event": "SessionStart",
+      "conditions": {
+        "source": ["startup", "resume"]
+      }
+    },
+    "on_success": [
+      {
+        "type": "file",
+        "path": ".claude/session-reports/{{timestamp}}.md",
+        "format": "markdown"
+      }
+    ]
+  },
+  {
+    "name": "Commit Message Generator",
+    "description": "Generate commit message from staged changes",
+    "type": "subagent",
+    "task_config": {
+      "type": "subagent",
+      "prompt": "Analyze git staged changes and suggest a concise commit message following conventional commits format.",
+      "inherit_context": true,
+      "allowed_tools": ["Bash"]
+    },
+    "trigger": {
+      "type": "manual",
+      "description": "Run via /run-task when ready to commit"
+    }
+  },
+  {
+    "name": "Cleanup on Session End",
+    "description": "Cleanup temporary files when session ends",
+    "type": "bash",
+    "task_config": {
+      "type": "bash",
+      "command": "find /tmp -name 'claude-*' -mmin +60 -delete"
+    },
+    "trigger": {
+      "type": "hook",
+      "event": "SessionEnd"
+    }
+  },
+  {
+    "name": "Git Sync Check on Session Start",
+    "description": "Check if local branch is in sync with remote",
+    "type": "bash",
+    "task_config": {
+      "type": "bash",
+      "command": "git fetch origin && git status -sb"
+    },
+    "trigger": {
+      "type": "hook",
+      "event": "SessionStart"
+    },
+    "on_success": [
+      {
+        "type": "notify",
+        "message": "Git sync status checked"
+      }
+    ]
+  },
+  {
+    "name": "Lint on Save",
+    "description": "Run ESLint on JavaScript/TypeScript files when saved",
+    "type": "bash",
+    "task_config": {
+      "type": "bash",
+      "command": "eslint --fix \"$FILE_PATH\""
+    },
+    "trigger": {
+      "type": "hook",
+      "event": "PostToolUse",
+      "conditions": {
+        "tool_names": ["Write", "Edit"],
+        "file_pattern": ".*\\.(js|jsx|ts|tsx)$"
+      },
+      "debounce": "1s"
+    }
+  },
+  {
+    "name": "Build on Config Change",
+    "description": "Rebuild project when configuration files change",
+    "type": "bash",
+    "task_config": {
+      "type": "bash",
+      "command": "npm run build",
+      "timeout": 120000
+    },
+    "trigger": {
+      "type": "hook",
+      "event": "PostToolUse",
+      "conditions": {
+        "file_pattern": ".*(package\\.json|tsconfig\\.json|webpack\\.config\\.js)$"
+      },
+      "debounce": "5s"
+    }
+  },
+  {
+    "name": "Update Dependencies Report",
+    "description": "Check for outdated dependencies weekly",
+    "type": "bash",
+    "task_config": {
+      "type": "bash",
+      "command": "npm outdated --json > .claude/reports/dependencies-$(date +%Y-%m-%d).json"
+    },
+    "trigger": {
+      "type": "schedule",
+      "cron": "0 9 * * 1",
+      "timezone": "America/New_York"
+    },
+    "on_success": [
+      {
+        "type": "notify",
+        "message": "Weekly dependency report generated"
+      }
+    ]
+  },
+  {
+    "name": "Database Backup",
+    "description": "Backup development database daily",
+    "type": "bash",
+    "task_config": {
+      "type": "bash",
+      "command": "pg_dump mydb > backups/mydb-$(date +%Y%m%d).sql"
+    },
+    "trigger": {
+      "type": "schedule",
+      "cron": "0 2 * * *",
+      "timezone": "UTC"
+    },
+    "conditions": {
+      "only_if_file_exists": "/usr/bin/pg_dump"
+    }
+  }
+]

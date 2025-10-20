@@ -1,14 +1,14 @@
 /**
  * Executor Factory
  *
- * Creates and manages task executors
- * Full implementation will be in Day 2-4 (Backend Agent + AI Agent)
+ * Creates executors for different task types
  *
- * % 70 COMPLETE - Executor factory with SDK and Bash support
+ * Two executor types:
+ * - BashExecutor: Shell command execution
+ * - SubagentExecutor: All Claude SDK-based tasks (ai_prompt, sdk_query, subagent, slash_command, tool_call)
  */
 
-import { Task } from '../models/types.js';
-import { SDKExecutor } from './sdk-executor.js';
+import { Task, Execution } from '../models/types.js';
 import { BashExecutor } from './bash-executor.js';
 import { SubagentExecutor } from './subagent-executor.js';
 
@@ -21,10 +21,10 @@ export interface Executor {
   /**
    * Execute a task
    * @param task - Task to execute
-   * @param triggerContext - Context from trigger (hook data, etc.)
+   * @param execution - Execution record with trigger context, status, etc.
    * @returns Execution result
    */
-  execute(task: Task, triggerContext?: any): Promise<ExecutionResult>;
+  execute(task: Task, execution: Execution): Promise<ExecutionResult>;
 }
 
 /**
@@ -58,7 +58,6 @@ export interface ExecutionResult {
  * Executor Factory
  *
  * Creates appropriate executor for a task type
- * This is a stub for Day 1 - full implementation in Day 2-4
  */
 export class ExecutorFactory {
   /**
@@ -68,60 +67,17 @@ export class ExecutorFactory {
    * @returns Appropriate executor instance
    */
   static createExecutor(task: Task, storage?: any): Executor {
-    // % 70 COMPLETE - createExecutor with SDK and Bash support
-
-    // Handle bash tasks
     if (task.type === 'bash') {
       return new BashExecutor();
     }
 
-    // Handle AI prompt and SDK query tasks
-    if (task.type === 'ai_prompt' || task.type === 'sdk_query') {
-      return new SDKExecutor(storage);
-    }
-
-    // Handle subagent tasks (stub for Day 4)
     if (task.type === 'subagent') {
-      return new SubagentExecutor();
+      return new SubagentExecutor(storage);
     }
 
-    // TODO Day 3: Implement SlashCommandExecutor
-    // TODO Day 4: Implement ToolCallExecutor
-
-    // For other types, return a stub executor
-    return new StubExecutor(task.type);
-
-    // % 70 COMPLETE - createExecutor with SDK and Bash support
+    throw new Error(
+      `Unsupported task type: ${task.type}. ` +
+      `Supported types: bash, subagent`
+    );
   }
 }
-
-/**
- * Stub Executor
- *
- * Placeholder executor for Day 1
- * Returns success with stub data
- */
-class StubExecutor implements Executor {
-  private taskType: string;
-
-  constructor(taskType: string) {
-    this.taskType = taskType;
-  }
-
-  async execute(task: Task, _triggerContext?: any): Promise<ExecutionResult> {
-    console.error(`[StubExecutor] Executing ${this.taskType} task: ${task.name}`);
-
-    // Simulate execution delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    return {
-      status: 'success',
-      output: `Stub execution of ${this.taskType} task: ${task.name}`,
-      duration_ms: 100,
-    };
-  }
-}
-
-/**
- * % 70 COMPLETE - Executor factory with SDK and Bash support
- */

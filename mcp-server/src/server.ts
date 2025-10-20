@@ -15,6 +15,7 @@ import { StorageFactory } from './storage/factory.js';
 import { Storage } from './storage/storage.js';
 import { registerTools } from './tools/index.js';
 import { ClaudeCronConfig } from './models/types.js';
+import { HttpTransportManager } from './transport/http.js';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
@@ -29,6 +30,8 @@ export class ClaudeCronServer {
   private scheduler?: Scheduler;
   private storage?: Storage;
   private transport: 'stdio' | 'http';
+  private httpTransportManager?: HttpTransportManager;
+  private config?: ClaudeCronConfig;
 
   constructor(transport: 'stdio' | 'http' = 'stdio') {
     // % 0 COMPLETE - constructor
@@ -59,15 +62,15 @@ export class ClaudeCronServer {
     console.error('[ClaudeCron] Initializing...');
 
     // Load configuration
-    const config = await this.loadConfig(configPath);
-    console.error(`[ClaudeCron] Using storage: ${config.storage.type} at ${config.storage.path || config.storage.url}`);
+    this.config = await this.loadConfig(configPath);
+    console.error(`[ClaudeCron] Using storage: ${this.config.storage.type} at ${this.config.storage.path || this.config.storage.url}`);
 
     // Initialize storage
-    this.storage = await StorageFactory.create(config.storage);
+    this.storage = await StorageFactory.create(this.config.storage);
     console.error('[ClaudeCron] Storage initialized');
 
     // Initialize scheduler
-    this.scheduler = new Scheduler(this.storage, config.scheduler);
+    this.scheduler = new Scheduler(this.storage, this.config.scheduler);
     console.error('[ClaudeCron] Scheduler initialized');
 
     // Register all MCP tools
@@ -75,6 +78,12 @@ export class ClaudeCronServer {
 
     // Start scheduler
     await this.scheduler.start();
+
+    // Initialize HTTP transport if needed
+    if (this.transport === 'http') {
+      this.httpTransportManager = new HttpTransportManager(this.server, this.config.http);
+      console.error('[ClaudeCron] HTTP transport manager initialized');
+    }
 
     console.error('[ClaudeCron] Initialization complete');
 
@@ -89,8 +98,13 @@ export class ClaudeCronServer {
     // % 0 COMPLETE - start
 
     if (this.transport === 'http') {
-      // HTTP transport for remote access (to be implemented in Day 6)
-      throw new Error('HTTP transport not yet implemented. Use STDIO for now.');
+      // HTTP transport for remote access
+      if (!this.httpTransportManager) {
+        throw new Error('HTTP transport manager not initialized. Call initialize() first.');
+      }
+
+      await this.httpTransportManager.start();
+      console.error('[ClaudeCron] MCP Server started (HTTP)');
     } else {
       // STDIO transport for local process communication
       const transport = new StdioServerTransport();
@@ -109,6 +123,10 @@ export class ClaudeCronServer {
     // % 0 COMPLETE - stop
 
     console.error('[ClaudeCron] Shutting down...');
+
+    if (this.httpTransportManager) {
+      await this.httpTransportManager.stop();
+    }
 
     if (this.scheduler) {
       await this.scheduler.stop();
@@ -210,10 +228,26 @@ export class ClaudeCronServer {
 async function main() {
   // % 0 COMPLETE - main
 
+  // Check if being called as CLI tool (with subcommand)
+  const subcommand = process.argv[2];
+
+  // Route to CLI handler if hook-event subcommand
+  if (subcommand === 'hook-event') {
+    // Remove 'hook-event' from argv so hook-event.ts gets correct args
+    // Before: [node, server.js, hook-event, event_type, context]
+    // After:  [node, server.js, event_type, context]
+    process.argv.splice(2, 1);
+
+    // Import and run hook-event CLI (it calls main() on import)
+    await import('./cli/hook-event.js');
+    return; // hook-event.js handles its own execution
+  }
+
+  // Otherwise, start MCP server
   // Determine transport from environment
   const transport = (process.env.CLAUDECRON_TRANSPORT as 'stdio' | 'http') || 'stdio';
 
-  // Get config path from CLI args
+  // Get config path from CLI args (if not a subcommand)
   const configPath = process.argv[2];
 
   // Create and start server

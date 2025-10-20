@@ -55,7 +55,10 @@ export class Scheduler {
   public hookManager: HookManager;
 
   // Day 3 additions
-  private intervalJobs: Map<string, NodeJS.Timeout> = new Map();
+  private intervalJobs: Map<string, {
+    timeout?: NodeJS.Timeout;
+    interval?: NodeJS.Timeout;
+  }> = new Map();
   public dependencyManager: DependencyManager;
   public fileWatchManager: FileWatchManager;
   public resultHandler: ResultHandlerExecutor;
@@ -176,8 +179,9 @@ export class Scheduler {
     this.scheduledTasks.clear();
 
     // Cancel all interval jobs
-    for (const [taskId, interval] of this.intervalJobs.entries()) {
-      clearInterval(interval);
+    for (const [taskId, job] of this.intervalJobs.entries()) {
+      if (job.timeout) clearTimeout(job.timeout);
+      if (job.interval) clearInterval(job.interval);
       console.error(`[Scheduler] Stopped interval task: ${taskId}`);
     }
     this.intervalJobs.clear();
@@ -748,7 +752,13 @@ export class Scheduler {
     );
 
     // Schedule with initial delay
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
+      // Remove timeout from job record since it has fired
+      const job = this.intervalJobs.get(task.id);
+      if (job) {
+        delete job.timeout;
+      }
+
       // Execute first time immediately after delay
       this.executeTask(task.id, 'interval').catch((error: any) => {
         console.error(
@@ -769,8 +779,17 @@ export class Scheduler {
         }
       }, duration);
 
-      this.intervalJobs.set(task.id, interval);
+      // Update job record with interval
+      if (this.intervalJobs.has(task.id)) {
+        this.intervalJobs.get(task.id)!.interval = interval;
+      } else {
+        // Task was unscheduled while timeout was running
+        clearInterval(interval);
+      }
     }, delay);
+
+    // Store the timeout timer so it can be cancelled
+    this.intervalJobs.set(task.id, { timeout });
   }
 
   /**
@@ -778,12 +797,19 @@ export class Scheduler {
    * @param taskId - Task ID to unschedule
    */
   private async unscheduleIntervalTask(taskId: string): Promise<void> {
-    const interval = this.intervalJobs.get(taskId);
-    if (!interval) {
+    const job = this.intervalJobs.get(taskId);
+    if (!job) {
       return;
     }
 
-    clearInterval(interval);
+    // Clear both timeout (if still pending) and interval (if running)
+    if (job.timeout) {
+      clearTimeout(job.timeout);
+    }
+    if (job.interval) {
+      clearInterval(job.interval);
+    }
+
     this.intervalJobs.delete(taskId);
 
     console.error(`[Scheduler] Unscheduled interval task: ${taskId}`);
@@ -864,9 +890,9 @@ export class Scheduler {
   private async optimizeSmartSchedule(task: Task): Promise<string> {
     const trigger = task.trigger as SmartScheduleTrigger;
 
-    // Import SDK executor dynamically to avoid circular dependencies
-    const { SDKExecutor } = await import('../executors/sdk-executor.js');
-    const sdkExecutor = new SDKExecutor();
+    // Import subagent executor dynamically to avoid circular dependencies
+    const { SubagentExecutor } = await import('../executors/subagent-executor.js');
+    const sdkExecutor = new SubagentExecutor(this.storage);
 
     const prompt = `You are a cron scheduling expert. Analyze this task and suggest an optimal cron expression.
 
@@ -888,26 +914,72 @@ Examples:
 - "*/30 0-8,18-23 * * *" (every 30min outside 9-5)
 - "0 2 * * *" (2 AM daily)`;
 
-    const result = await sdkExecutor.execute({
-      type: 'ai_prompt',
-      prompt,
-      inherit_context: false,
-      allowed_tools: [],
-      capture_thinking: false,
-    } as any, {} as any);
+    // Create a temporary subagent task for the optimization
+    const optimizationTask: Task = {
+      id: `${task.id}_optimization`,
+      name: `AI optimization for ${task.name}`,
+      description: 'Internal task for smart schedule optimization',
+      type: 'subagent',
+      task_config: {
+        type: 'subagent',
+        prompt,
+        inherit_context: false,
+        allowed_tools: [],
+        capture_thinking: false,
+      },
+      trigger: {
+        type: 'manual',
+        description: 'Internal AI-driven optimization for smart schedule'
+      },
+      enabled: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      run_count: 0,
+      success_count: 0,
+      failure_count: 0,
+    };
 
-    if (result.status !== 'success' || !result.output) {
-      throw new Error('AI optimization failed to generate cron expression');
+    // Create a temporary execution record for the optimization
+    const optimizationExecution = await this.storage.createExecution({
+      task_id: optimizationTask.id,
+      trigger_type: 'internal',
+      status: 'running',
+      started_at: new Date().toISOString(),
+    });
+
+    try {
+      const result = await sdkExecutor.execute(optimizationTask, optimizationExecution);
+
+      if (result.status !== 'success' || !result.output) {
+        throw new Error('AI optimization failed to generate cron expression');
+      }
+
+      // Extract and validate cron expression
+      const cronExpr = result.output?.trim().split('\n')[0]?.trim() || '';
+
+      if (!cronExpr || !cron.validate(cronExpr)) {
+        throw new Error(`Invalid cron expression generated: ${cronExpr}`);
+      }
+
+      // Update execution record as successful
+      await this.storage.updateExecution(optimizationExecution.id, {
+        ...optimizationExecution,
+        status: 'success',
+        output: cronExpr,
+        completed_at: new Date().toISOString(),
+      });
+
+      return cronExpr;
+    } catch (error) {
+      // Update execution record as failed
+      await this.storage.updateExecution(optimizationExecution.id, {
+        ...optimizationExecution,
+        status: 'failure',
+        error: error instanceof Error ? error.message : String(error),
+        completed_at: new Date().toISOString(),
+      });
+      throw error;
     }
-
-    // Extract and validate cron expression
-    const cronExpr = result.output?.trim().split('\n')[0]?.trim() || '';
-
-    if (!cronExpr || !cron.validate(cronExpr)) {
-      throw new Error(`Invalid cron expression generated: ${cronExpr}`);
-    }
-
-    return cronExpr;
   }
 
   /**

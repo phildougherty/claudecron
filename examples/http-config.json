@@ -1,0 +1,24 @@
+{
+  "storage": {
+    "type": "sqlite",
+    "path": "~/.claude/claudecron/tasks.db"
+  },
+  "scheduler": {
+    "check_interval": "30s",
+    "default_timezone": "UTC",
+    "max_concurrent_tasks": 10
+  },
+  "transport": "http",
+  "http": {
+    "port": 3000,
+    "host": "localhost",
+    "auth": {
+      "type": "bearer",
+      "token": "replace-with-your-secret-token"
+    },
+    "cors": {
+      "enabled": true,
+      "origins": ["*"]
+    }
+  }
+}

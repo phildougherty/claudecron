@@ -118,9 +118,9 @@ This creates:
 ```json
 {
   "name": "Session Startup Report",
-  "type": "ai_prompt",
+  "type": "subagent",
   "task_config": {
-    "type": "ai_prompt",
+    "type": "subagent",
     "prompt": "Review recent git commits and provide a brief summary of work since last session.",
     "inherit_context": true,
     "allowed_tools": ["Bash", "Read"]
@@ -134,29 +134,60 @@ This creates:
 
 ## Task Types
 
-**bash** - Run shell commands
-- Good for: builds, tests, file operations, git commands
-- Config: `{ "command": "npm test", "timeout": 60000 }`
+### **bash** - Execute shell commands
+Run any shell command with full environment control.
 
-**ai_prompt** - Run AI prompts using Claude Agent SDK
-- Good for: code review, summaries, analysis
-- Config: `{ "prompt": "...", "inherit_context": true, "allowed_tools": [...] }`
+**Good for**: builds, tests, file operations, git commands, scripts
 
-**slash_command** - Execute Claude Code slash commands
-- Good for: triggering custom workflows
-- Config: `{ "command": "/my-command arg1 arg2" }`
+**Example**:
+```json
+{
+  "type": "bash",
+  "command": "npm test",
+  "cwd": "/path/to/project",
+  "timeout": 60000
+}
+```
 
-**subagent** - Launch subagents
-- Good for: complex multi-step workflows
-- Config: `{ "subagent_type": "general-purpose", "prompt": "..." }`
+### **subagent** - Execute prompts via Claude SDK
+Run any AI prompt with full Claude SDK capabilities.
 
-**tool_call** - Call specific MCP tools
-- Good for: direct tool invocations
-- Config: `{ "tool_name": "...", "arguments": {...} }`
+**Good for**: code review, analysis, refactoring, documentation, complex multi-step workflows
 
-**sdk_query** - Custom SDK queries
-- Good for: advanced SDK usage
-- Config: `{ "query": "...", "options": {...} }`
+**Example** (inline prompt):
+```json
+{
+  "type": "subagent",
+  "prompt": "Review the code changes and summarize",
+  "model": "claude-sonnet-4.5",
+  "inherit_context": true,
+  "allowed_tools": ["Read", "Grep"],
+  "capture_thinking": true
+}
+```
+
+**Example** (load from .claude/commands/):
+```json
+{
+  "type": "subagent",
+  "command": "review-pr",
+  "args": "123",
+  "stream_output": true
+}
+```
+
+**Subagent config options**:
+- `prompt` - Inline prompt (supports `{{template_vars}}`)
+- `command` - Load prompt from `.claude/commands/{command}.md`
+- `args` - Arguments to append to command
+- `model` - Model to use (default: claude-sonnet-4.5)
+- `inherit_context` - Load CLAUDE.md context (default: true)
+- `allowed_tools` - Restrict available tools
+- `additional_context` - Extra context to append
+- `capture_thinking` - Capture thinking blocks (Claude 4.5+)
+- `stream_output` - Stream results in real-time
+- `max_thinking_tokens` - Extended thinking token limit
+- `sdk_options` - Override any SDK option
 
 ## Triggers
 
@@ -265,9 +296,9 @@ Delete a task:
 Delete the task named "Auto-format TypeScript on Save"
 ```
 
-## Configuration for AI Tasks
+## Configuration for Subagent Tasks
 
-AI tasks (`ai_prompt` type) can use MCP tools if you configure them. Create a `.mcp.json` file in your project:
+Subagent tasks can use MCP tools if you configure them. Create a `.mcp.json` file in your project:
 
 ```json
 {

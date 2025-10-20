@@ -8,6 +8,9 @@ import { describe, it, expect } from 'vitest';
 import { ExecutorFactory } from '../../../src/executors/factory.js';
 import { BashExecutor } from '../../../src/executors/bash-executor.js';
 import { SDKExecutor } from '../../../src/executors/sdk-executor.js';
+import { SlashCommandExecutor } from '../../../src/executors/slash-command-executor.js';
+import { ToolCallExecutor } from '../../../src/executors/tool-call-executor.js';
+import { SubagentExecutor } from '../../../src/executors/subagent-executor.js';
 import { TestHelpers } from '../../fixtures/test-helpers.js';
 
 describe('ExecutorFactory', () => {
@@ -49,7 +52,7 @@ describe('ExecutorFactory', () => {
       expect(executor).toBeInstanceOf(SDKExecutor);
     });
 
-    it('should create StubExecutor for unsupported task types', () => {
+    it('should create SlashCommandExecutor for slash_command tasks', () => {
       const task = TestHelpers.createMockTask({
         type: 'slash_command',
         task_config: {
@@ -60,28 +63,33 @@ describe('ExecutorFactory', () => {
 
       const executor = ExecutorFactory.createExecutor(task);
 
-      // Should not throw, should return stub
-      expect(executor).toBeTruthy();
-      expect(executor).not.toBeInstanceOf(BashExecutor);
-      expect(executor).not.toBeInstanceOf(SDKExecutor);
+      expect(executor).toBeInstanceOf(SlashCommandExecutor);
     });
 
-    it('should execute stub executor successfully', async () => {
+    it('should create ToolCallExecutor for tool_call tasks', () => {
       const task = TestHelpers.createMockTask({
         type: 'tool_call',
         task_config: {
           type: 'tool_call',
-          tool_name: 'test',
-          tool_input: {}
+          tool_name: 'Bash',
+          parameters: { command: 'echo test' }
         } as any
       });
 
       const executor = ExecutorFactory.createExecutor(task);
-      const result = await executor.execute(task);
 
-      expect(result.status).toBe('success');
-      expect(result.output).toContain('Stub execution');
-      expect(result.duration_ms).toBeGreaterThan(0);
+      expect(executor).toBeInstanceOf(ToolCallExecutor);
+    });
+
+    it('should throw error for unsupported task types', () => {
+      const task = TestHelpers.createMockTask({
+        type: 'unsupported_type' as any,
+        task_config: {} as any
+      });
+
+      expect(() => ExecutorFactory.createExecutor(task)).toThrow(
+        'Unsupported task type: unsupported_type'
+      );
     });
   });
 

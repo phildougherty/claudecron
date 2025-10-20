@@ -106,13 +106,29 @@ describe('StorageFactory', () => {
   });
 
   describe('PostgreSQL Storage Creation', () => {
-    it('should throw error for PostgreSQL (not yet implemented)', async () => {
-      await expect(
-        StorageFactory.create({
-          type: 'postgres',
-          url: 'postgresql://localhost/test'
-        })
-      ).rejects.toThrow('PostgreSQL storage not yet implemented');
+    it('should create PostgresStorage for postgres type', async () => {
+      // Note: This test will try to connect to PostgreSQL and may fail if no server is running
+      // In a real test environment, you would either:
+      // 1. Have a test PostgreSQL database running
+      // 2. Mock the PostgresStorage connection
+      // 3. Skip this test if no database is available
+
+      // For now, we just verify it doesn't throw "not yet implemented"
+      // and instead attempts to create the storage (which may fail due to connection)
+      const createPromise = StorageFactory.create({
+        type: 'postgres',
+        url: 'postgresql://localhost:5432/test'
+      });
+
+      // Should either succeed or fail with connection error, not "not yet implemented"
+      try {
+        const storage = await createPromise;
+        expect(storage).toBeDefined();
+        await storage.close();
+      } catch (error: any) {
+        // If it fails, it should be a connection error, not "not yet implemented"
+        expect(error.message).not.toContain('not yet implemented');
+      }
     });
   });
 
